@@ -1097,7 +1097,10 @@ class PaymentEntry(AccountsController):
 
 				make_reverse_gl_entries(gl_entries=gl_entries, partial_cancel=True)
 			else:
-				make_gl_entries(gl_entries)
+				try:
+					make_gl_entries(gl_entries)
+				except (frappe.exceptions.ValidationError):
+					frappe.msgprint("Advance Account GL Entries not made because account not set.")
 
 	def make_invoice_liability_entry(self, gl_entries, invoice):
 		args_dict = {
@@ -1128,14 +1131,15 @@ class PaymentEntry(AccountsController):
 
 		args_dict[dr_or_cr] = 0
 		args_dict[dr_or_cr + "_in_account_currency"] = 0
+		
 		dr_or_cr = "debit" if dr_or_cr == "credit" else "credit"
 		args_dict["account"] = self.party_account
 		args_dict[dr_or_cr] = invoice.allocated_amount
 		args_dict[dr_or_cr + "_in_account_currency"] = invoice.allocated_amount
 		args_dict.update(
 			{
-				"against_voucher_type": "Payment Entry",
-				"against_voucher": self.name,
+				"against_voucher_type": invoice.reference_doctype,
+				"against_voucher": invoice.reference_name,
 			}
 		)
 		gle = self.get_gl_dict(
